@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalshi × Liftoff | ROAS Dashboard</title>
+<!--
+  PASSWORD: Kalshi2026!
+  To change: generate SHA-256 of your new password, replace STORED_HASH below.
+  Online tool: https://emn178.github.io/online-tools/sha256.html
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--card:#21262d;--border:#30363d;
+  --primary:#7c3aed;--primary-lt:#a855f7;--cyan:#06b6d4;
+  --green:#22c55e;--green-bg:rgba(34,197,94,.15);
+  --yellow:#eab308;--yellow-bg:rgba(234,179,8,.15);
+  --red:#ef4444;--red-bg:rgba(239,68,68,.15);
+  --text:#e6edf3;--muted:#8b949e;--dim:#6e7681;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── GATE ── */
+#gate{display:flex;align-items:center;justify-content:center;min-height:100vh;background:radial-gradient(ellipse at center,#1a0a3e 0%,var(--bg) 70%)}
+.gate-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:48px;width:400px;text-align:center}
+.gate-eyebrow{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.gate-title{font-size:24px;font-weight:700;margin-bottom:6px}
+.gate-sub{font-size:13px;color:var(--muted);margin-bottom:28px}
+.gate-input{width:100%;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;margin-bottom:10px;outline:none;transition:border-color .2s}
+.gate-input:focus{border-color:var(--primary)}
+.gate-btn{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s}
+.gate-btn:hover{background:var(--primary-lt)}
+.gate-btn:disabled{opacity:.5;cursor:not-allowed}
+.gate-error{color:var(--red);font-size:13px;margin-top:8px;min-height:18px}
+
+/* ── UPLOAD ── */
+#upload-screen{display:none;min-height:100vh;padding:60px 20px}
+.upload-wrap{max-width:680px;margin:0 auto}
+.upload-head{text-align:center;margin-bottom:36px}
+.upload-head h1{font-size:22px;font-weight:700;margin-bottom:6px}
+.upload-head p{font-size:13px;color:var(--muted)}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.upload-zone{background:var(--surface);border:2px dashed var(--border);border-radius:12px;padding:30px 20px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--primary);background:rgba(124,58,237,.05)}
+.upload-zone.loaded{border-color:var(--green);border-style:solid}
+.upload-icon{font-size:30px;margin-bottom:10px}
+.upload-lbl{font-size:13px;font-weight:600;margin-bottom:3px}
+.upload-hint{font-size:11px;color:var(--muted)}
+.upload-ok{font-size:12px;color:var(--green);margin-top:6px;font-weight:500}
+.upload-go{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
+.upload-go:disabled{opacity:.4;cursor:not-allowed}
+.upload-go:not(:disabled):hover{background:var(--primary-lt)}
+
+/* ── DASHBOARD ── */
+#dashboard{display:none}
+.dash-hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:12px;height:52px;flex-wrap:wrap}
+.dash-brand{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.dash-title{font-size:14px;font-weight:700}
+.spacer{flex:1}
+.dash-range{font-size:11px;color:var(--muted)}
+.hdr-btn{padding:5px 11px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.hdr-btn:hover{border-color:var(--primary);color:var(--text)}
+
+/* filter bar */
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.fg{display:flex;align-items:center;gap:5px}
+.flbl{font-size:10px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.fbtn{padding:4px 9px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s}
+.fbtn:hover{border-color:var(--primary);color:var(--text)}
+.fbtn.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.custom-dates{display:flex;align-items:center;gap:5px}
+.dinput{padding:4px 8px;background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;outline:none}
+
+/* campaign dropdown */
+.camp-wrap{position:relative}
+.camp-btn{padding:4px 10px;background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;min-width:150px;justify-content:space-between;white-space:nowrap}
+.camp-menu{position:absolute;top:calc(100% + 4px);left:0;background:var(--card);border:1px solid var(--border);border-radius:8px;min-width:250px;z-index:200;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);max-height:300px;overflow-y:auto}
+.camp-menu.open{display:block}
+.camp-opt{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;cursor:pointer;transition:background .1s;user-select:none}
+.camp-opt:hover{background:rgba(255,255,255,.05)}
+.camp-opt input{accent-color:var(--primary);width:14px;height:14px;pointer-events:none}
+.camp-divider{border-top:1px solid var(--border);margin:2px 0}
+
+/* data note */
+.data-note{font-size:11px;color:var(--dim);background:var(--surface);border-bottom:1px solid var(--border);padding:6px 20px}
+
+/* main */
+.main{padding:16px 20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.kpi-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-val{font-size:22px;font-weight:700}
+.kpi-sub{font-size:11px;color:var(--dim);margin-top:3px}
+
+.funnel-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.funnel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.funnel-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.funnel-val{font-size:20px;font-weight:700}
+.funnel-rate{font-size:11px;color:var(--dim);margin-top:3px}
+.funnel-rate span{color:var(--cyan);font-weight:600}
+
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.chart-ttl{font-size:12px;font-weight:600;margin-bottom:12px}
+.chart-wrap{position:relative;height:180px}
+
+/* table */
+.tbl-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.tbl-hdr{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.tbl-hdr h3{font-size:12px;font-weight:600}
+.legend{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim)}
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--surface)}
+th{padding:9px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.rc{border-radius:4px;padding:2px 7px;font-weight:600;font-size:11px;display:inline-flex;align-items:center;gap:3px}
+.rc-g{background:var(--green-bg);color:var(--green)}
+.rc-y{background:var(--yellow-bg);color:var(--yellow)}
+.rc-r{background:var(--red-bg);color:var(--red)}
+.rc-n{color:var(--dim)}
+.rc-bake{opacity:.75}
+.ub{font-size:10px;cursor:help}
+
+/* modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:26px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-ttl{font-size:15px;font-weight:700;margin-bottom:3px}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.tg{margin-bottom:16px}
+.tg-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.tg-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tg-wrap{display:flex;flex-direction:column;gap:3px}
+.tg-hint{font-size:10px;color:var(--dim)}
+.tinput{padding:7px 9px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;width:100%}
+.tinput:focus{border-color:var(--primary)}
+.pwd-section{margin-top:20px;padding-top:20px;border-top:1px solid var(--border)}
+.pwd-section h4{font-size:13px;font-weight:600;margin-bottom:3px}
+.pwd-section p{font-size:12px;color:var(--muted);margin-bottom:10px}
+.hash-out{padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:5px;font-size:10px;font-family:monospace;color:var(--cyan);word-break:break-all;display:none;margin-top:6px}
+.copy-note{font-size:10px;color:var(--green);margin-top:3px;display:none}
+.mfooter{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.btn-sec{padding:7px 14px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:13px;cursor:pointer}
+.btn-pri{padding:7px 14px;background:var(--primary);border:none;border-radius:6px;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.btn-pri:hover{background:var(--primary-lt)}
+
+@media(max-width:768px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .charts-row{grid-template-columns:1fr}
+  .funnel-row{grid-template-columns:1fr}
+}
+@media(max-width:480px){.kpi-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ GATE ═══════════════ -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-eyebrow">Kalshi × Liftoff</div>
+    <div class="gate-title">ROAS Dashboard</div>
+    <div class="gate-sub">Enter your password to view performance data</div>
+    <input class="gate-input" type="password" id="pwd-input" placeholder="Password" autocomplete="current-password">
+    <button class="gate-btn" id="pwd-btn" onclick="checkPwd()">Unlock →</button>
+    <div class="gate-error" id="gate-err"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ UPLOAD ═══════════════ -->
+<div id="upload-screen">
+  <div class="upload-wrap">
+    <!-- Resume banner — shown when localStorage has saved data -->
+    <div id="resume-banner" style="display:none;background:var(--surface);border:1px solid var(--green);border-radius:12px;padding:20px 24px;margin-bottom:24px;display:none">
+      <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:4px">✓ Saved data found</div>
+      <div id="resume-info" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="resumeFromCache()" style="flex:1;padding:10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Resume with saved data →</button>
+        <button onclick="clearAndUpload()" style="padding:10px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--muted);cursor:pointer">Upload new files</button>
+      </div>
+    </div>
+
+    <div id="upload-fresh">
+    <div class="upload-head">
+      <h1>Upload Data Files</h1>
+      <p>Drag & drop or click each zone. Files are processed locally — nothing leaves your browser.</p>
+    </div>
+    <div class="upload-grid">
+      <div class="upload-zone" id="zone-agg"
+           ondrop="handleDrop(event,'agg')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+           onclick="document.getElementById('fi-agg').click()">
+        <div class="upload-icon">📊</div>
+        <div class="upload-lbl">Aggregate ROAS</div>
+        <div class="upload-hint">liftoff_roas_*.csv</div>
+        <div class="upload-ok" id="ok-agg"></div>
+      </div>
+      <div class="upload-zone" id="zone-camp"
+           ondrop="handleDrop(event,'camp')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)"
+           onclick="document.getElementById('fi-camp').click()">
+        <div class="upload-icon">🎯</div>
+        <div class="upload-lbl">Campaign ROAS</div>
+        <div class="upload-hint">liftoff_campaign_roas_*.csv</div>
+        <div class="upload-ok" id="ok-camp"></div>
+      </div>
+    </div>
+    <input type="file" id="fi-agg" accept=".csv" style="display:none" onchange="handleFileInput(event,'agg')">
+    <input type="file" id="fi-camp" accept=".csv" style="display:none" onchange="handleFileInput(event,'camp')">
+    <button class="upload-go" id="go-btn" disabled onclick="launchDashboard()">Load Dashboard →</button>
+    </div><!-- end upload-fresh -->
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div id="dashboard">
+  <!-- Header -->
+  <div class="dash-hdr">
+    <span class="dash-brand">Kalshi × Liftoff</span>
+    <span class="dash-title">ROAS Dashboard</span>
+    <div class="spacer"></div>
+    <span class="dash-range" id="hdr-range"></span>
+    <button class="hdr-btn" onclick="showUpload()">↑ Update Data</button>
+    <button class="hdr-btn" onclick="openSettings()">⚙ Settings</button>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="fg">
+      <span class="flbl">Period</span>
+      <button class="fbtn" data-r="7"   onclick="setRange(7)">7D</button>
+      <button class="fbtn on" data-r="30" onclick="setRange(30)">30D</button>
+      <button class="fbtn" data-r="60"  onclick="setRange(60)">60D</button>
+      <button class="fbtn" data-r="90"  onclick="setRange(90)">90D</button>
+      <button class="fbtn" data-r="all" onclick="setRange('all')">All</button>
+      <button class="fbtn" data-r="custom" onclick="setRange('custom')">Custom</button>
+      <div class="custom-dates" id="custom-dates" style="display:none">
+        <input type="date" class="dinput" id="d-start" onchange="applyCustom()">
+        <span style="color:var(--dim);font-size:12px">→</span>
+        <input type="date" class="dinput" id="d-end" onchange="applyCustom()">
+      </div>
+    </div>
+    <div class="fg">
+      <span class="flbl">Cohort</span>
+      <button class="fbtn on" data-c="daily"   onclick="setCohort('daily')">Daily</button>
+      <button class="fbtn" data-c="weekly"  onclick="setCohort('weekly')">Weekly</button>
+      <button class="fbtn" data-c="monthly" onclick="setCohort('monthly')">Monthly</button>
+    </div>
+    <div class="fg">
+      <span class="flbl">Campaign</span>
+      <div class="camp-wrap" id="camp-wrap">
+        <button class="camp-btn" onclick="toggleMenu(event)">
+          <span id="camp-lbl">All Campaigns</span><span>▾</span>
+        </button>
+        <div class="camp-menu" id="camp-menu">
+          <div class="camp-opt" id="opt-all" onclick="selectAll()">
+            <input type="checkbox" id="chk-all" checked><span>All Campaigns</span>
+          </div>
+          <div class="camp-divider"></div>
+          <div id="camp-opts"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unbaked note -->
+  <div class="data-note">
+    ⚠️ <strong>Unbaked data:</strong> D7 ROAS within the last 7 days and D30 ROAS within the last 30 days are still accumulating. Marked with ⚠️ in the table below.
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- KPI cards -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-lbl">Total Spend</div>
+        <div class="kpi-val" id="k-spend">—</div>
+        <div class="kpi-sub" id="k-spend-s"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Avg D1 ROAS</div>
+        <div class="kpi-val" id="k-d1">—</div>
+        <div class="kpi-sub" id="k-d1-s"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Avg D7 ROAS</div>
+        <div class="kpi-val" id="k-d7">—</div>
+        <div class="kpi-sub" id="k-d7-s" style="color:var(--yellow)"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Avg D30 ROAS</div>
+        <div class="kpi-val" id="k-d30">—</div>
+        <div class="kpi-sub" id="k-d30-s" style="color:var(--yellow)"></div>
+      </div>
+    </div>
+
+    <!-- Funnel -->
+    <div class="funnel-row">
+      <div class="funnel">
+        <div class="funnel-lbl">👤 Signups</div>
+        <div class="funnel-val" id="k-signups">—</div>
+        <div class="funnel-rate" id="k-signups-r"></div>
+      </div>
+      <div class="funnel">
+        <div class="funnel-lbl">💳 Depositors</div>
+        <div class="funnel-val" id="k-dep">—</div>
+        <div class="funnel-rate" id="k-dep-r"></div>
+      </div>
+      <div class="funnel">
+        <div class="funnel-lbl">📈 Traders</div>
+        <div class="funnel-val" id="k-trd">—</div>
+        <div class="funnel-rate" id="k-trd-r"></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-ttl">Daily Spend</div>
+        <div class="chart-wrap"><canvas id="ch-spend"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-ttl">ROAS Trend <span style="font-size:10px;color:var(--dim);font-weight:400">(baked data only)</span></div>
+        <div class="chart-wrap"><canvas id="ch-roas"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="tbl-card">
+      <div class="tbl-hdr">
+        <h3 id="tbl-title">Performance by Day</h3>
+        <div class="legend">⚠️ = still baking &nbsp;|&nbsp; 🟢 above target &nbsp;|&nbsp; 🟡 near target &nbsp;|&nbsp; 🔴 below target</div>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Spend</th>
+              <th>D1 ROAS</th>
+              <th>D7 ROAS</th>
+              <th>D30 ROAS</th>
+              <th>Signups</th>
+              <th>Depositors</th>
+              <th>Dep%</th>
+              <th>Traders</th>
+              <th>Trade%</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETTINGS MODAL ═══════════════ -->
+<div class="overlay" id="settings-overlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-ttl">⚙ Dashboard Settings</div>
+    <div class="modal-sub">Enter thresholds as percentages — e.g. <strong>3.5 = 3.5% ROAS</strong>. Same units as what you see in the table.</div>
+
+    <div class="tg">
+      <div class="tg-lbl">D1 ROAS Thresholds (%)</div>
+      <div class="tg-row">
+        <div class="tg-wrap">
+          <div class="tg-hint">🟢 Green if ≥ (e.g. 5 = 5%)</div>
+          <input class="tinput" type="number" id="t-d1g" step="0.1" min="0" value="5">
+        </div>
+        <div class="tg-wrap">
+          <div class="tg-hint">🟡 Yellow if ≥ (e.g. 2 = 2%)</div>
+          <input class="tinput" type="number" id="t-d1y" step="0.1" min="0" value="2">
+        </div>
+      </div>
+    </div>
+
+    <div class="tg">
+      <div class="tg-lbl">D7 ROAS Thresholds (%)</div>
+      <div class="tg-row">
+        <div class="tg-wrap">
+          <div class="tg-hint">🟢 Green if ≥ (e.g. 10 = 10%)</div>
+          <input class="tinput" type="number" id="t-d7g" step="0.1" min="0" value="10">
+        </div>
+        <div class="tg-wrap">
+          <div class="tg-hint">🟡 Yellow if ≥ (e.g. 5 = 5%)</div>
+          <input class="tinput" type="number" id="t-d7y" step="0.1" min="0" value="5">
+        </div>
+      </div>
+    </div>
+
+    <div class="tg">
+      <div class="tg-lbl">D30 ROAS Thresholds (%)</div>
+      <div class="tg-row">
+        <div class="tg-wrap">
+          <div class="tg-hint">🟢 Green if ≥ (e.g. 50 = 50%)</div>
+          <input class="tinput" type="number" id="t-d30g" step="0.1" min="0" value="50">
+        </div>
+        <div class="tg-wrap">
+          <div class="tg-hint">🟡 Yellow if ≥ (e.g. 25 = 25%)</div>
+          <input class="tinput" type="number" id="t-d30y" step="0.1" min="0" value="25">
+        </div>
+      </div>
+    </div>
+
+    <div class="pwd-section">
+      <h4>🔑 Change Password</h4>
+      <p>Type a new password and click Generate. Copy the hash and replace <code>STORED_HASH</code> in the &lt;script&gt; section of this HTML file.</p>
+      <div style="display:flex;gap:7px">
+        <input class="tinput" type="password" id="new-pwd" placeholder="New password…" style="flex:1">
+        <button class="btn-pri" onclick="genHash()">Generate</button>
+      </div>
+      <div class="hash-out" id="hash-out"></div>
+      <div class="copy-note" id="copy-note">✓ Copied to clipboard</div>
+    </div>
+
+    <div class="mfooter">
+      <button class="btn-sec" onclick="closeSettings()">Cancel</button>
+      <button class="btn-pri" onclick="saveSettings()">Save &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════
+const STORED_HASH = '178319e805e017c6542c232e2269192c690509f37ec093c733dab34b78605cd7';
+// Default password: Kalshi2026!
+// localStorage keys
+const LS_AGG = 'kl_agg_rows';
+const LS_CAMP = 'kl_camp_rows';
+const LS_META = 'kl_meta';        // { minDate, maxDate, savedAt }
+const LS_THRESH = 'kl_thresholds';
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// Thresholds stored in PERCENTAGE units (e.g. 5 = 5% ROAS)
+// This matches what the table displays so users can enter
+// the same number they see: if table shows "3.5%", enter 3.5
+// ═══════════════════════════════════════════════════════
+function defaultThresholds() {
+  return { d1:{g:5,y:2}, d7:{g:10,y:5}, d30:{g:50,y:25} };
+}
+
+function loadThresholds() {
+  try {
+    const saved = localStorage.getItem(LS_THRESH);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return defaultThresholds();
+}
+
+const S = {
+  agg: [],
+  camp: [],
+  campaigns: [],
+  minDate: null,
+  maxDate: null,
+  range: 30,
+  customMode: false,
+  dStart: null,
+  dEnd: null,
+  cohort: 'daily',
+  selCamps: [],
+  thresholds: loadThresholds(),
+  charts: { spend: null, roas: null },
+  loaded: { agg: false, camp: false },
+};
+
+// ═══════════════════════════════════════════════════════
+// PASSWORD
+// ═══════════════════════════════════════════════════════
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPwd() {
+  const pwd = document.getElementById('pwd-input').value;
+  if (!pwd) return;
+  const btn = document.getElementById('pwd-btn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const h = await sha256(pwd);
+    if (h === STORED_HASH) {
+      document.getElementById('gate').style.display = 'none';
+      showUpload();
+    } else {
+      document.getElementById('gate-err').textContent = 'Incorrect password.';
+      btn.disabled = false; btn.textContent = 'Unlock →';
+    }
+  } catch(e) {
+    document.getElementById('gate-err').textContent = 'Error — try again.';
+    btn.disabled = false; btn.textContent = 'Unlock →';
+  }
+}
+document.getElementById('pwd-input').addEventListener('keydown', e => { if(e.key==='Enter') checkPwd(); });
+
+// ═══════════════════════════════════════════════════════
+// LOCALSTORAGE — cache & restore
+// ═══════════════════════════════════════════════════════
+function saveToCache(type, rows) {
+  try { localStorage.setItem(type === 'agg' ? LS_AGG : LS_CAMP, JSON.stringify(rows)); } catch(e) {}
+}
+
+function loadFromCache() {
+  try {
+    const agg = JSON.parse(localStorage.getItem(LS_AGG) || 'null');
+    const camp = JSON.parse(localStorage.getItem(LS_CAMP) || 'null');
+    const meta = JSON.parse(localStorage.getItem(LS_META) || 'null');
+    if (agg && camp && meta) return { agg, camp, meta };
+  } catch(e) {}
+  return null;
+}
+
+function saveMeta() {
+  try {
+    localStorage.setItem(LS_META, JSON.stringify({
+      minDate: S.minDate, maxDate: S.maxDate,
+      savedAt: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      aggRows: S.agg.length, campRows: S.camp.length, campaigns: S.campaigns.length,
+    }));
+  } catch(e) {}
+}
+
+function resumeFromCache() {
+  const c = loadFromCache();
+  if (!c) return;
+  S.agg = c.agg; S.camp = c.camp;
+  S.campaigns = [...new Set(S.camp.map(r=>r.campaign))].sort();
+  S.loaded.agg = true; S.loaded.camp = true;
+  S.minDate = c.meta.minDate; S.maxDate = c.meta.maxDate;
+  activateDashboard();
+}
+
+function clearAndUpload() {
+  document.getElementById('resume-banner').style.display = 'none';
+  document.getElementById('upload-fresh').style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════
+// UPLOAD
+// ═══════════════════════════════════════════════════════
+function showUpload() {
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'block';
+  // Check for cached data and show resume banner
+  const cache = loadFromCache();
+  if (cache) {
+    const banner = document.getElementById('resume-banner');
+    const fresh = document.getElementById('upload-fresh');
+    banner.style.display = 'block';
+    fresh.style.display = 'none';
+    document.getElementById('resume-info').textContent =
+      `${cache.meta.campRows.toLocaleString()} campaign rows · ${cache.meta.campaigns} campaigns · saved ${cache.meta.savedAt} · data through ${cache.meta.maxDate}`;
+  }
+}
+function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function handleDrop(e, t) { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f&&f.name.endsWith('.csv')) parseCSV(f,t); }
+function handleFileInput(e, t) { const f=e.target.files[0]; if(f) parseCSV(f,t); e.target.value=''; }
+
+function parseCSV(file, type) {
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true, dynamicTyping: true,
+    complete(res) {
+      if (type === 'agg') {
+        S.agg = res.data.filter(r => r.day && r.spend != null);
+        S.loaded.agg = true;
+        saveToCache('agg', S.agg);
+        document.getElementById('ok-agg').textContent = `✓ ${S.agg.length} rows`;
+        document.getElementById('zone-agg').classList.add('loaded');
+      } else {
+        S.camp = res.data.filter(r => r.day && r.campaign);
+        S.campaigns = [...new Set(S.camp.map(r=>r.campaign))].sort();
+        S.loaded.camp = true;
+        saveToCache('camp', S.camp);
+        document.getElementById('ok-camp').textContent = `✓ ${S.camp.length} rows, ${S.campaigns.length} campaigns`;
+        document.getElementById('zone-camp').classList.add('loaded');
+      }
+      document.getElementById('go-btn').disabled = !(S.loaded.agg && S.loaded.camp);
+    }
+  });
+}
+
+function launchDashboard() {
+  const dates = S.agg.map(r=>r.day).filter(Boolean).sort();
+  S.minDate = dates[0];
+  S.maxDate = dates[dates.length-1];
+  saveMeta();
+  activateDashboard();
+}
+
+function activateDashboard() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('hdr-range').textContent = `Data: ${S.minDate} → ${S.maxDate}`;
+  document.getElementById('d-start').min = S.minDate;
+  document.getElementById('d-start').max = S.maxDate;
+  document.getElementById('d-end').min = S.minDate;
+  document.getElementById('d-end').max = S.maxDate;
+  buildCampaignMenu();
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// CAMPAIGN FILTER
+// ═══════════════════════════════════════════════════════
+function buildCampaignMenu() {
+  const c = document.getElementById('camp-opts');
+  c.innerHTML = '';
+  S.campaigns.forEach(name => {
+    const d = document.createElement('div');
+    d.className = 'camp-opt';
+    d.innerHTML = `<input type="checkbox" class="cchk" value="${name}"><span>${name}</span>`;
+    d.addEventListener('click', function(e) {
+      if (e.target.tagName !== 'INPUT') { const chk=this.querySelector('input'); chk.checked=!chk.checked; }
+      updateCampFilter();
+    });
+    c.appendChild(d);
+  });
+}
+
+function toggleMenu(e) { e.stopPropagation(); document.getElementById('camp-menu').classList.toggle('open'); }
+document.addEventListener('click', () => document.getElementById('camp-menu')?.classList.remove('open'));
+
+function selectAll() {
+  document.querySelectorAll('.cchk').forEach(c=>c.checked=false);
+  document.getElementById('chk-all').checked = true;
+  S.selCamps = [];
+  document.getElementById('camp-lbl').textContent = 'All Campaigns';
+  render();
+}
+
+function updateCampFilter() {
+  const checked = Array.from(document.querySelectorAll('.cchk:checked')).map(c=>c.value);
+  S.selCamps = checked;
+  document.getElementById('chk-all').checked = checked.length === 0;
+  document.getElementById('camp-lbl').textContent = checked.length === 0 ? 'All Campaigns' : `${checked.length} selected`;
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// FILTERS
+// ═══════════════════════════════════════════════════════
+function setRange(r) {
+  document.querySelectorAll('[data-r]').forEach(b=>b.classList.remove('on'));
+  document.querySelector(`[data-r="${r}"]`)?.classList.add('on');
+  if (r === 'custom') {
+    S.customMode = true;
+    document.getElementById('custom-dates').style.display = 'flex';
+    return;
+  }
+  S.customMode = false;
+  document.getElementById('custom-dates').style.display = 'none';
+  S.range = r === 'all' ? 9999 : parseInt(r);
+  render();
+}
+
+function applyCustom() {
+  S.dStart = document.getElementById('d-start').value;
+  S.dEnd = document.getElementById('d-end').value;
+  if (S.dStart && S.dEnd) render();
+}
+
+function setCohort(c) {
+  document.querySelectorAll('[data-c]').forEach(b=>b.classList.remove('on'));
+  document.querySelector(`[data-c="${c}"]`)?.classList.add('on');
+  S.cohort = c;
+  document.getElementById('tbl-title').textContent =
+    c === 'weekly' ? 'Performance by Week' : c === 'monthly' ? 'Performance by Month' : 'Performance by Day';
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════
+function dateRange() {
+  if (S.customMode && S.dStart && S.dEnd) return { s: S.dStart, e: S.dEnd };
+  const end = S.maxDate;
+  const d = new Date(end + 'T00:00:00');
+  d.setDate(d.getDate() - S.range + 1);
+  return { s: d.toISOString().split('T')[0], e: end };
+}
+
+function isUnbaked(day, win) {
+  const diff = (new Date(S.maxDate+'T00:00:00') - new Date(day+'T00:00:00')) / 86400000;
+  return diff < win;
+}
+
+function weekKey(day) {
+  const d = new Date(day+'T00:00:00');
+  const dow = d.getDay();
+  d.setDate(d.getDate() - dow + (dow===0?-6:1));
+  return d.toISOString().split('T')[0];
+}
+function monthKey(day) { return day.substring(0,7); }
+
+function getRows() {
+  const {s, e} = dateRange();
+  const sel = S.selCamps;
+
+  // Always get signups/depositors/traders from campaign file
+  const campSel = sel.length ? sel : null;
+  const campMap = {};
+  S.camp.filter(r => r.day >= s && r.day <= e && (!campSel || campSel.includes(r.campaign))).forEach(r => {
+    const k = r.day;
+    if (!campMap[k]) campMap[k] = { signups:0, dep:0, trd:0 };
+    campMap[k].signups += r.signups || 0;
+    campMap[k].dep += r.depositors || 0;
+    campMap[k].trd += r.traders || 0;
+  });
+
+  let rows;
+  if (sel.length === 0) {
+    // Use aggregate file for ROAS + spend
+    rows = S.agg.filter(r => r.day >= s && r.day <= e).map(r => {
+      const c = campMap[r.day] || {signups:0,dep:0,trd:0};
+      const d1 = r.roas_day_1 != null && r.roas_day_1 !== '' ? +r.roas_day_1 : null;
+      const d7 = r.roas_day_7 != null && r.roas_day_7 !== '' ? +r.roas_day_7 : null;
+      const d30 = r.roas_day_30 != null && r.roas_day_30 !== '' ? +r.roas_day_30 : null;
+      return {
+        day: r.day, spend: r.spend||0,
+        d1, d7, d30,
+        signups: c.signups, dep: c.dep, trd: c.trd,
+        ub7: isUnbaked(r.day,7), ub30: isUnbaked(r.day,30),
+      };
+    });
+  } else {
+    // Aggregate campaign rows by day
+    const byday = {};
+    S.camp.filter(r => r.day >= s && r.day <= e && sel.includes(r.campaign)).forEach(r => {
+      const k = r.day;
+      if (!byday[k]) byday[k] = {day:k,spend:0,rev1:0,sp1:0,rev7:0,sp7:0,rev30:0,sp30:0};
+      const d = byday[k];
+      const sp = r.spend||0;
+      d.spend += sp;
+      if (r.roas_day_1!=null&&r.roas_day_1!=='') { d.rev1+=sp*+r.roas_day_1; d.sp1+=sp; }
+      if (r.roas_day_7!=null&&r.roas_day_7!=='') { d.rev7+=sp*+r.roas_day_7; d.sp7+=sp; }
+      if (r.roas_day_30!=null&&r.roas_day_30!=='') { d.rev30+=sp*+r.roas_day_30; d.sp30+=sp; }
+    });
+    rows = Object.values(byday).sort((a,b)=>a.day.localeCompare(b.day)).map(d => {
+      const c = campMap[d.day]||{signups:0,dep:0,trd:0};
+      return {
+        day: d.day, spend: d.spend,
+        d1: d.sp1>0 ? d.rev1/d.sp1 : null,
+        d7: d.sp7>0 ? d.rev7/d.sp7 : null,
+        d30: d.sp30>0 ? d.rev30/d.sp30 : null,
+        signups: c.signups, dep: c.dep, trd: c.trd,
+        ub7: isUnbaked(d.day,7), ub30: isUnbaked(d.day,30),
+      };
+    });
+  }
+  return rows;
+}
+
+function cohort(rows) {
+  if (S.cohort === 'daily') return rows;
+  const key = S.cohort==='weekly' ? r=>weekKey(r.day) : r=>monthKey(r.day);
+  const g = {};
+  rows.forEach(r => {
+    const k = key(r);
+    if (!g[k]) g[k]={day:k,spend:0,rev1:0,sp1:0,rev7:0,sp7:0,rev30:0,sp30:0,signups:0,dep:0,trd:0,hasUb7:false,hasUb30:false};
+    const d=g[k];
+    d.spend+=r.spend; d.signups+=r.signups; d.dep+=r.dep; d.trd+=r.trd;
+    if(r.d1!=null&&!isNaN(r.d1)){d.rev1+=r.spend*r.d1;d.sp1+=r.spend;}
+    // For cohorted ROAS: include partially baked (user sees ub warning on cohort)
+    if(r.d7!=null&&!isNaN(r.d7)){d.rev7+=r.spend*r.d7;d.sp7+=r.spend;}
+    if(r.d30!=null&&!isNaN(r.d30)){d.rev30+=r.spend*r.d30;d.sp30+=r.spend;}
+    if(r.ub7)d.hasUb7=true;
+    if(r.ub30)d.hasUb30=true;
+  });
+  return Object.values(g).sort((a,b)=>a.day.localeCompare(b.day)).map(d=>({
+    day:d.day,spend:d.spend,
+    d1:d.sp1>0?d.rev1/d.sp1:null,
+    d7:d.sp7>0?d.rev7/d.sp7:null,
+    d30:d.sp30>0?d.rev30/d.sp30:null,
+    signups:d.signups,dep:d.dep,trd:d.trd,
+    ub7:d.hasUb7,ub30:d.hasUb30,
+  }));
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  try {
+    const raw = getRows();
+    const rows = cohort(raw);
+    renderKPIs(rows);
+    renderCharts(rows);
+    renderTable(rows);
+  } catch(err) {
+    console.error('Dashboard render error:', err);
+    showToast('⚠ Render error — check console');
+  }
+}
+
+const $ = id => document.getElementById(id);
+
+function fmt(n, dec=0) {
+  if (n==null||isNaN(n)) return '—';
+  return n.toLocaleString('en-US',{maximumFractionDigits:dec});
+}
+function fmtM(n) {
+  if (n==null||isNaN(n)) return '—';
+  if (n>=1e6) return '$'+(n/1e6).toFixed(2)+'M';
+  if (n>=1e3) return '$'+(n/1e3).toFixed(1)+'K';
+  return '$'+n.toFixed(0);
+}
+function fmtR(n) { return n==null||isNaN(n) ? '—' : (n*100).toFixed(1)+'%'; }
+function fmtP(a,b) { return b>0 ? (a/b*100).toFixed(1)+'%' : '—'; }
+
+// v is a ratio (e.g. 0.035), thresholds are in % (e.g. 3.5)
+// convert v to % before comparing so user enters what they see
+function roasColor(v, win) {
+  if (v==null||isNaN(v)) return 'var(--text)';
+  const pct = v * 100;
+  const t = S.thresholds[win];
+  return pct>=t.g?'var(--green)':pct>=t.y?'var(--yellow)':'var(--red)';
+}
+
+function renderKPIs(rows) {
+  const spend=rows.reduce((s,r)=>s+r.spend,0);
+  let rev1=0,sp1=0,rev7=0,sp7=0,rev30=0,sp30=0,ub7=0,ub30=0;
+  rows.forEach(r=>{
+    if(r.d1!=null){rev1+=r.spend*r.d1;sp1+=r.spend;}
+    if(r.d7!=null){rev7+=r.spend*r.d7;sp7+=r.spend;}
+    if(r.d30!=null){rev30+=r.spend*r.d30;sp30+=r.spend;}
+    if(r.ub7)ub7++;
+    if(r.ub30)ub30++;
+  });
+  const d1=sp1>0?rev1/sp1:null;
+  const d7=sp7>0?rev7/sp7:null;
+  const d30=sp30>0?rev30/sp30:null;
+
+  $('k-spend').textContent=fmtM(spend);
+  $('k-spend-s').textContent=`${rows.length} period${rows.length!==1?'s':''}`;
+  $('k-d1').textContent=fmtR(d1); $('k-d1').style.color=roasColor(d1,'d1');
+  $('k-d1-s').textContent='';
+  $('k-d7').textContent=fmtR(d7); $('k-d7').style.color=roasColor(d7,'d7');
+  $('k-d7-s').textContent=ub7>0?`⚠️ ${ub7} period${ub7>1?'s':''} still baking`:'';
+  $('k-d30').textContent=fmtR(d30); $('k-d30').style.color=roasColor(d30,'d30');
+  $('k-d30-s').textContent=ub30>0?`⚠️ ${ub30} period${ub30>1?'s':''} still baking`:'';
+
+  const sig=rows.reduce((s,r)=>s+r.signups,0);
+  const dep=rows.reduce((s,r)=>s+r.dep,0);
+  const trd=rows.reduce((s,r)=>s+r.trd,0);
+  $('k-signups').textContent=fmt(Math.round(sig));
+  $('k-signups-r').textContent='';
+  $('k-dep').textContent=fmt(Math.round(dep));
+  $('k-dep-r').innerHTML=sig>0?`<span>${fmtP(dep,sig)}</span> of signups deposited`:'';
+  $('k-trd').textContent=fmt(Math.round(trd));
+  $('k-trd-r').innerHTML=dep>0?`<span>${fmtP(trd,dep)}</span> of depositors traded`:'';
+}
+
+function renderCharts(rows) {
+  const labels=rows.map(r=>fmtLabel(r.day));
+
+  // Spend chart
+  if(S.charts.spend) S.charts.spend.destroy();
+  S.charts.spend=new Chart($('ch-spend').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{
+      label:'Spend',
+      data:rows.map(r=>r.spend),
+      backgroundColor:'rgba(124,58,237,.6)',
+      borderColor:'rgba(124,58,237,1)',
+      borderWidth:1,borderRadius:2,
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString('en-US',{maximumFractionDigits:0})}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b949e',maxTicksLimit:10,font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b949e',font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v}}
+      }
+    }
+  });
+
+  // ROAS chart
+  if(S.charts.roas) S.charts.roas.destroy();
+  S.charts.roas=new Chart($('ch-roas').getContext('2d'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'D1',data:rows.map(r=>r.d1!=null?+(r.d1*100).toFixed(2):null),borderColor:'#06b6d4',backgroundColor:'rgba(6,182,212,.08)',borderWidth:2,pointRadius:2,tension:.3,spanGaps:false},
+      {label:'D7 (baked)',data:rows.map(r=>r.d7!=null&&!r.ub7?+(r.d7*100).toFixed(2):null),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',borderWidth:2,pointRadius:2,tension:.3,spanGaps:false},
+      {label:'D30 (baked)',data:rows.map(r=>r.d30!=null&&!r.ub30?+(r.d30*100).toFixed(2):null),borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,.08)',borderWidth:2,pointRadius:2,tension:.3,spanGaps:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#8b949e',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.raw!=null?c.raw.toFixed(1)+'%':'N/A')}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b949e',maxTicksLimit:10,font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#8b949e',font:{size:10},callback:v=>v+'%'}}
+      }
+    }
+  });
+}
+
+function renderTable(rows) {
+  const tbody=$('tbl-body');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--dim)">No data for selected range.</td></tr>';return;}
+  const sorted=[...rows].reverse();
+  tbody.innerHTML=sorted.map(r=>{
+    return `<tr>
+      <td style="font-weight:600">${fmtPeriod(r.day)}</td>
+      <td>${fmtM(r.spend)}</td>
+      <td>${roasCell(r.d1,'d1',false)}</td>
+      <td>${roasCell(r.d7,'d7',r.ub7)}</td>
+      <td>${roasCell(r.d30,'d30',r.ub30)}</td>
+      <td>${fmt(Math.round(r.signups))}</td>
+      <td>${fmt(Math.round(r.dep))}</td>
+      <td style="color:var(--muted)">${fmtP(r.dep,r.signups)}</td>
+      <td>${fmt(Math.round(r.trd))}</td>
+      <td style="color:var(--muted)">${fmtP(r.trd,r.dep)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function roasCell(v, win, ub) {
+  const badge = ub ? '<span class="ub" title="Still baking — value will change">⚠️</span>' : '';
+  if (v==null||isNaN(v)) {
+    if(ub) return `<span class="rc rc-y rc-bake">${badge} Baking…</span>`;
+    return `<span style="color:var(--dim)">—</span>`;
+  }
+  // v is ratio, t is in %, convert to % before comparing
+  const pct = v * 100;
+  const t = S.thresholds[win];
+  const cls = pct>=t.g?'rc-g':pct>=t.y?'rc-y':'rc-r';
+  return `<span class="rc ${cls}${ub?' rc-bake':''}">${fmtR(v)}${badge}</span>`;
+}
+
+function fmtLabel(day) {
+  if(S.cohort==='monthly'){const d=new Date(day+'-01T00:00:00');return d.toLocaleString('en-US',{month:'short',year:'2-digit'});}
+  const d=new Date(day+'T00:00:00');
+  return d.toLocaleString('en-US',{month:'short',day:'numeric'});
+}
+
+function fmtPeriod(day) {
+  if(S.cohort==='monthly'){const d=new Date(day+'-01T00:00:00');return d.toLocaleString('en-US',{month:'long',year:'numeric'});}
+  if(S.cohort==='weekly'){const d=new Date(day+'T00:00:00');return 'Wk of '+d.toLocaleString('en-US',{month:'short',day:'numeric'});}
+  const d=new Date(day+'T00:00:00');
+  return d.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function openSettings() {
+  const t = S.thresholds;
+  // Values are already in % (e.g. 3.5 = 3.5%), load them directly
+  $('t-d1g').value = t.d1.g;  $('t-d1y').value = t.d1.y;
+  $('t-d7g').value = t.d7.g;  $('t-d7y').value = t.d7.y;
+  $('t-d30g').value = t.d30.g; $('t-d30y').value = t.d30.y;
+  $('hash-out').style.display = 'none';
+  $('copy-note').style.display = 'none';
+  $('settings-overlay').classList.add('open');
+}
+function closeSettings() { $('settings-overlay').classList.remove('open'); }
+function overlayClick(e) { if(e.target===$('settings-overlay')) closeSettings(); }
+
+function saveSettings() {
+  // Values are in % — user enters 3.5 meaning 3.5% — stored as-is
+  const p=(id,def)=>{ const v=parseFloat($(id).value); return isNaN(v)?def:v; };
+  S.thresholds.d1.g  = p('t-d1g',  5);
+  S.thresholds.d1.y  = p('t-d1y',  2);
+  S.thresholds.d7.g  = p('t-d7g', 10);
+  S.thresholds.d7.y  = p('t-d7y',  5);
+  S.thresholds.d30.g = p('t-d30g', 50);
+  S.thresholds.d30.y = p('t-d30y', 25);
+  // Persist to localStorage so settings survive refresh
+  try { localStorage.setItem(LS_THRESH, JSON.stringify(S.thresholds)); } catch(e) {}
+  closeSettings();
+  render();
+  showToast('✓ Thresholds saved & applied');
+}
+
+function showToast(msg) {
+  let t=document.getElementById('toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='toast';
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#22c55e;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.style.opacity='0',2200);
+}
+
+async function genHash() {
+  const pwd=$('new-pwd').value; if(!pwd) return;
+  const h=await sha256(pwd);
+  $('hash-out').textContent=h;
+  $('hash-out').style.display='block';
+  navigator.clipboard.writeText(h).then(()=>{$('copy-note').style.display='block';setTimeout(()=>$('copy-note').style.display='none',2500);}).catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════
+// CHART.JS DEFAULTS
+// ═══════════════════════════════════════════════════════
+Chart.defaults.color='#8b949e';
+Chart.defaults.borderColor='rgba(255,255,255,.08)';
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeSettings(); });
+</script>
+</body>
+</html>
