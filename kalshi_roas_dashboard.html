@@ -172,6 +172,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+
+<!-- ═══════════════ LOADING ═══════════════ -->
+<div id="loading-screen" style="display:none;align-items:center;justify-content:center;min-height:100vh;background:radial-gradient(ellipse at center,#1a0a3e 0%,var(--bg) 70%);flex-direction:column;gap:16px">
+  <div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+  <div style="font-size:14px;color:var(--muted)">Loading latest data…</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
 <!-- ═══════════════ UPLOAD ═══════════════ -->
 <div id="upload-screen">
   <div class="upload-wrap">
@@ -187,8 +195,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <div id="upload-fresh">
     <div class="upload-head">
-      <h1>Upload Data Files</h1>
-      <p>Drag & drop or click each zone. Files are processed locally — nothing leaves your browser.</p>
+      <h1>Update Dashboard Data</h1>
+      <p>Upload fresh CSV exports to replace the embedded data. Files are processed locally — nothing leaves your browser. Viewers see the embedded data by default.</p>
     </div>
     <div class="upload-grid">
       <div class="upload-zone" id="zone-agg"
@@ -429,11 +437,87 @@ tr:hover td{background:rgba(255,255,255,.02)}
 // ═══════════════════════════════════════════════════════
 const STORED_HASH = '178319e805e017c6542c232e2269192c690509f37ec093c733dab34b78605cd7';
 // Default password: Kalshi2026!
-// localStorage keys
-const LS_AGG = 'kl_agg_rows';
-const LS_CAMP = 'kl_camp_rows';
-const LS_META = 'kl_meta';        // { minDate, maxDate, savedAt }
-const LS_THRESH = 'kl_thresholds';
+
+// ═══════════════════════════════════════════════════════
+// LIVE DATA — fetched from GitHub on every page load
+// To update data for everyone: drop new CSVs in your
+// 'Kalshi Dashboard Data' desktop folder, then run
+// 'Sync Dashboard.command' — no need to re-upload this HTML.
+// ═══════════════════════════════════════════════════════
+const REPO_OWNER = 'akhambati-dev';
+const REPO_NAME  = 'kalshi-roas-dashboard';
+const BRANCH     = 'main';
+
+function rawUrl(filename) {
+  // Cache-bust with date so users always get today's data on refresh
+  const today = new Date().toISOString().split('T')[0];
+  return `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/data/${filename}?v=${today}`;
+}
+
+function fetchLiveData() {
+  return new Promise((resolve, reject) => {
+    let done = 0;
+    let failed = 0;
+    function check() {
+      done++;
+      if (done === 2) { failed === 2 ? reject(new Error('Both fetches failed')) : resolve(); }
+    }
+    Papa.parse(rawUrl('liftoff_roas.csv'), {
+      download: true, header: true, skipEmptyLines: true, dynamicTyping: true,
+      complete(res) {
+        S.agg = res.data.filter(r => r.day && r.spend != null);
+        S.loaded.agg = true;
+        check();
+      },
+      error() { failed++; check(); }
+    });
+    Papa.parse(rawUrl('liftoff_campaign_roas.csv'), {
+      download: true, header: true, skipEmptyLines: true, dynamicTyping: true,
+      complete(res) {
+        S.camp = res.data.filter(r => r.day && r.campaign);
+        S.campaigns = [...new Set(S.camp.map(r=>r.campaign))].sort();
+        S.loaded.camp = true;
+        check();
+      },
+      error() { failed++; check(); }
+    });
+  });
+}
+
+function loadAndLaunch() {
+  const gate = document.getElementById('gate');
+  const loading = document.getElementById('loading-screen');
+  gate.style.display = 'none';
+  loading.style.display = 'flex';
+
+  fetchLiveData()
+    .then(() => {
+      const dates = S.agg.map(r=>r.day).sort();
+      S.minDate = dates[0];
+      S.maxDate = dates[dates.length-1];
+      saveToCache('agg', S.agg);
+      saveToCache('camp', S.camp);
+      saveMeta();
+      loading.style.display = 'none';
+      activateDashboard();
+    })
+    .catch(() => {
+      // Fallback to localStorage cache
+      const cache = loadFromCache();
+      if (cache) {
+        S.agg = cache.agg; S.camp = cache.camp;
+        S.campaigns = [...new Set(S.camp.map(r=>r.campaign))].sort();
+        S.minDate = cache.meta.minDate; S.maxDate = cache.meta.maxDate;
+        loading.style.display = 'none';
+        activateDashboard();
+        showToast('⚠ Using cached data — could not reach GitHub');
+      } else {
+        loading.style.display = 'none';
+        document.getElementById('gate').style.display = 'flex';
+        document.getElementById('gate-err').textContent = 'Could not load data. Check your connection.';
+      }
+    });
+}
 
 // ═══════════════════════════════════════════════════════
 // STATE
@@ -486,8 +570,7 @@ async function checkPwd() {
   try {
     const h = await sha256(pwd);
     if (h === STORED_HASH) {
-      document.getElementById('gate').style.display = 'none';
-      showUpload();
+      loadAndLaunch();
     } else {
       document.getElementById('gate-err').textContent = 'Incorrect password.';
       btn.disabled = false; btn.textContent = 'Unlock →';
