@@ -1,33 +1,48 @@
 #!/bin/bash
 # ─────────────────────────────────────────────
-#  Kalshi ROAS Dashboard — Data Sync
-#  Double-click this file to push new data to GitHub.
-#  Everyone who refreshes the dashboard URL sees the update instantly.
+#  Kalshi ROAS Dashboard — Daily Data Sync
+#  1. Drop new CSVs into ~/Desktop/Kalshi Dashboard Data/
+#  2. Double-click this file
+#  3. Done — everyone sees new data on refresh
 # ─────────────────────────────────────────────
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA_DIR="$REPO_DIR/data"
-SOURCE="$HOME/Desktop/Kalshi Dashboard Data"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Kalshi ROAS Dashboard — Data Sync"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+echo "Reading and embedding new data..."
+echo ""
 
-if [ -d "$SOURCE" ]; then
-    # Always pick the newest file by modification date
-    AGG=$(ls -t "$SOURCE"/liftoff_roas*.csv 2>/dev/null | head -1)
-    CAMP=$(ls -t "$SOURCE"/liftoff_campaign_roas*.csv 2>/dev/null | head -1)
-    [ -n "$AGG" ]  && cp "$AGG"  "$DATA_DIR/liftoff_roas.csv"  && echo "✓ $(basename "$AGG")"
-    [ -n "$CAMP" ] && cp "$CAMP" "$DATA_DIR/liftoff_campaign_roas.csv" && echo "✓ $(basename "$CAMP")"
-else
-    echo "⚠  '$SOURCE' not found — add CSVs directly to the data/ folder"
+# Step 1: Run Python script to embed fresh data into HTML
+python3 "$REPO_DIR/update_data.py"
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Data update failed. Check the messages above."
+    echo "Press any key to close..."
+    read -n 1
+    exit 1
 fi
 
+# Step 2: Commit and push everything to GitHub
 echo ""
+echo "Pushing to GitHub..."
 cd "$REPO_DIR"
-git add data/
-git commit -m "Data update $(date '+%Y-%m-%d')" 2>/dev/null || echo "No new changes to push"
-git push && echo "" && echo "✅ Done! Everyone will see the new data on refresh." || echo "❌ Push failed — check internet connection"
+git add .
+git commit -m "Data update $(date '+%Y-%m-%d')"
+git push
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  ✅  Done!"
+    echo "  Everyone will see the new data"
+    echo "  when they refresh the dashboard."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+else
+    echo "❌ Push failed. Check your internet connection."
+fi
+
 echo ""
 echo "Press any key to close..."
 read -n 1
