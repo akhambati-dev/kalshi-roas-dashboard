@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
 Kalshi ROAS Dashboard — Data Embedder
-Reads the latest CSVs from your Desktop folder,
-embeds them directly into the HTML file, and saves.
-Run automatically by 'Sync Dashboard.command'.
+Reads the latest CSVs from your Desktop folder and
+embeds them directly into the HTML. No file copying needed.
 """
-import csv, json, re, os, glob, sys, shutil
+import csv, json, re, os, glob, sys
 from pathlib import Path
 from datetime import date
 
-SCRIPT_DIR  = Path(__file__).parent
-HTML_FILE   = SCRIPT_DIR / 'kalshi_roas_dashboard.html'
-DATA_DIR    = SCRIPT_DIR / 'data'
-SOURCE_DIR  = Path.home() / 'Desktop' / 'Kalshi Dashboard Data'
+SCRIPT_DIR = Path(__file__).parent
+HTML_FILE  = SCRIPT_DIR / 'kalshi_roas_dashboard.html'
+SOURCE_DIR = Path.home() / 'Desktop' / 'Kalshi Dashboard Data'
 
 def nf(v):
     try: return round(float(v), 6) if v and str(v).strip() else None
@@ -22,7 +20,7 @@ def newest(pattern):
     files = sorted(glob.glob(str(SOURCE_DIR / pattern)), key=os.path.getmtime, reverse=True)
     return files[0] if files else None
 
-# ── Find files ──────────────────────────────────────────
+# ── Find newest CSVs ────────────────────────────────────
 if not SOURCE_DIR.exists():
     print(f"⚠  Folder not found: {SOURCE_DIR}")
     sys.exit(1)
@@ -34,23 +32,11 @@ if not agg_file:
     print("⚠  No liftoff_roas*.csv found in your Desktop folder.")
     sys.exit(1)
 if not camp_file:
-    print("⚠  No liftoff_campaign_roas*.csv found in your Desktop folder.")
+    print("⚠  No liftoff_campaign_roas*.csv found.")
     sys.exit(1)
 
 print(f"  Aggregate : {os.path.basename(agg_file)}")
 print(f"  Campaign  : {os.path.basename(camp_file)}")
-
-# ── Copy to data/ folder (delete first to bypass permission lock) ──
-DATA_DIR.mkdir(exist_ok=True)
-for dest, src in [(DATA_DIR / 'liftoff_roas.csv', agg_file),
-                  (DATA_DIR / 'liftoff_campaign_roas.csv', camp_file)]:
-    try:
-        if dest.exists():
-            dest.unlink()
-        shutil.copy(src, dest)
-    except PermissionError:
-        # Write content directly if delete fails
-        dest.write_bytes(Path(src).read_bytes())
 
 # ── Parse CSVs ──────────────────────────────────────────
 agg_rows = []
@@ -86,5 +72,5 @@ html = re.sub(r'// Last embedded: \d{4}-\d{2}-\d{2}', f'// Last embedded: {date.
 HTML_FILE.write_text(html, encoding='utf-8')
 
 latest = max(r[0] for r in agg_rows)
-print(f"  {len(agg_rows)} aggregate rows | {len(camp_rows)} campaign rows | latest: {latest}")
-print(f"✓ HTML updated successfully")
+print(f"  {len(agg_rows)} rows | {len(camp_rows)} campaign rows | latest date: {latest}")
+print(f"✓ HTML updated")
