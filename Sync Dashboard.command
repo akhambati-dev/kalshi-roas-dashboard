@@ -14,6 +14,9 @@ echo ""
 echo "Reading and embedding new data..."
 echo ""
 
+# Fix permissions on data folder before running
+chmod -R 755 "$REPO_DIR/data/" 2>/dev/null
+
 # Step 1: Run Python script to embed fresh data into HTML
 python3 "$REPO_DIR/update_data.py"
 if [ $? -ne 0 ]; then

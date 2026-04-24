@@ -25,26 +25,32 @@ def newest(pattern):
 # ── Find files ──────────────────────────────────────────
 if not SOURCE_DIR.exists():
     print(f"⚠  Folder not found: {SOURCE_DIR}")
-    print("   Drop CSVs directly into the data/ folder instead.")
-    sys.exit(0)
+    sys.exit(1)
 
 agg_file  = newest('liftoff_roas*.csv')
 camp_file = newest('liftoff_campaign_roas*.csv')
 
 if not agg_file:
-    print("⚠  No liftoff_roas*.csv found. Add it to your Desktop folder.")
+    print("⚠  No liftoff_roas*.csv found in your Desktop folder.")
     sys.exit(1)
 if not camp_file:
-    print("⚠  No liftoff_campaign_roas*.csv found. Add it to your Desktop folder.")
+    print("⚠  No liftoff_campaign_roas*.csv found in your Desktop folder.")
     sys.exit(1)
 
 print(f"  Aggregate : {os.path.basename(agg_file)}")
 print(f"  Campaign  : {os.path.basename(camp_file)}")
 
-# ── Copy to data/ folder ────────────────────────────────
+# ── Copy to data/ folder (delete first to bypass permission lock) ──
 DATA_DIR.mkdir(exist_ok=True)
-shutil.copy(agg_file,  DATA_DIR / 'liftoff_roas.csv')
-shutil.copy(camp_file, DATA_DIR / 'liftoff_campaign_roas.csv')
+for dest, src in [(DATA_DIR / 'liftoff_roas.csv', agg_file),
+                  (DATA_DIR / 'liftoff_campaign_roas.csv', camp_file)]:
+    try:
+        if dest.exists():
+            dest.unlink()
+        shutil.copy(src, dest)
+    except PermissionError:
+        # Write content directly if delete fails
+        dest.write_bytes(Path(src).read_bytes())
 
 # ── Parse CSVs ──────────────────────────────────────────
 agg_rows = []
@@ -52,11 +58,8 @@ with open(agg_file) as f:
     for r in csv.DictReader(f):
         if not r.get('day'): continue
         agg_rows.append([
-            r['day'],
-            round(float(r.get('spend') or 0), 2),
-            nf(r.get('roas_day_1')),
-            nf(r.get('roas_day_7')),
-            nf(r.get('roas_day_30')),
+            r['day'], round(float(r.get('spend') or 0), 2),
+            nf(r.get('roas_day_1')), nf(r.get('roas_day_7')), nf(r.get('roas_day_30')),
         ])
 
 camp_rows = []
@@ -69,9 +72,7 @@ with open(camp_file) as f:
             round(float(r.get('signups') or 0), 1),
             round(float(r.get('depositors') or 0), 1),
             round(float(r.get('traders') or 0), 1),
-            nf(r.get('roas_day_1')),
-            nf(r.get('roas_day_7')),
-            nf(r.get('roas_day_30')),
+            nf(r.get('roas_day_1')), nf(r.get('roas_day_7')), nf(r.get('roas_day_30')),
         ])
 
 agg_json  = json.dumps({'cols':['day','spend','roas_day_1','roas_day_7','roas_day_30'],'rows':agg_rows}, separators=(',',':'))
