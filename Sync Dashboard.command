@@ -1,67 +1,33 @@
 #!/bin/bash
 # ─────────────────────────────────────────────
-#  Kalshi ROAS Dashboard — Data Sync Script
+#  Kalshi ROAS Dashboard — Data Sync
 #  Double-click this file to push new data to GitHub.
-#  Everyone who refreshes the dashboard URL sees the update.
+#  Everyone who refreshes the dashboard URL sees the update instantly.
 # ─────────────────────────────────────────────
-
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_DIR="$REPO_DIR/data"
-SOURCE_FOLDER="$HOME/Desktop/Kalshi Dashboard Data"
+SOURCE="$HOME/Desktop/Kalshi Dashboard Data"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Kalshi ROAS Dashboard — Data Sync"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Step 1: Copy CSVs from the desktop source folder
-if [ -d "$SOURCE_FOLDER" ]; then
-    AGG=$(ls "$SOURCE_FOLDER"/liftoff_roas*.csv 2>/dev/null | head -1)
-    CAMP=$(ls "$SOURCE_FOLDER"/liftoff_campaign_roas*.csv 2>/dev/null | head -1)
-
-    if [ -n "$AGG" ]; then
-        cp "$AGG" "$DATA_DIR/liftoff_roas.csv"
-        echo "✓ Copied aggregate file: $(basename "$AGG")"
-    else
-        echo "⚠  No liftoff_roas*.csv found in '$SOURCE_FOLDER'"
-    fi
-
-    if [ -n "$CAMP" ]; then
-        cp "$CAMP" "$DATA_DIR/liftoff_campaign_roas.csv"
-        echo "✓ Copied campaign file:   $(basename "$CAMP")"
-    else
-        echo "⚠  No liftoff_campaign_roas*.csv found in '$SOURCE_FOLDER'"
-    fi
+if [ -d "$SOURCE" ]; then
+    # Always pick the newest file by modification date
+    AGG=$(ls -t "$SOURCE"/liftoff_roas*.csv 2>/dev/null | head -1)
+    CAMP=$(ls -t "$SOURCE"/liftoff_campaign_roas*.csv 2>/dev/null | head -1)
+    [ -n "$AGG" ]  && cp "$AGG"  "$DATA_DIR/liftoff_roas.csv"  && echo "✓ $(basename "$AGG")"
+    [ -n "$CAMP" ] && cp "$CAMP" "$DATA_DIR/liftoff_campaign_roas.csv" && echo "✓ $(basename "$CAMP")"
 else
-    echo "⚠  Source folder not found: '$SOURCE_FOLDER'"
-    echo "   Drop your CSVs directly into the data/ folder instead."
+    echo "⚠  '$SOURCE' not found — add CSVs directly to the data/ folder"
 fi
 
 echo ""
-
-# Step 2: Push to GitHub
 cd "$REPO_DIR"
-
-if ! git diff --quiet data/ 2>/dev/null || git status --short data/ | grep -q .; then
-    git add data/
-    git commit -m "Data update $(date '+%Y-%m-%d %H:%M')"
-    echo ""
-    echo "Pushing to GitHub..."
-    if git push; then
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  ✅  Done! Dashboard is now live."
-        echo "  Refresh the link and you'll see the latest data."
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    else
-        echo ""
-        echo "❌  Push failed. Make sure you're connected to the internet"
-        echo "   and GitHub Desktop is set up with your credentials."
-    fi
-else
-    echo "No changes detected in data/ — nothing to push."
-fi
-
+git add data/
+git commit -m "Data update $(date '+%Y-%m-%d')" 2>/dev/null || echo "No new changes to push"
+git push && echo "" && echo "✅ Done! Everyone will see the new data on refresh." || echo "❌ Push failed — check internet connection"
 echo ""
 echo "Press any key to close..."
 read -n 1
