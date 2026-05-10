@@ -53,6 +53,7 @@ ar = [
         r["day"],
         round(float(r.get("spend") or 0), 2),
         nf(r.get("roas_day_1")),
+        nf(r.get("roas_day_3")),
         nf(r.get("roas_day_7")),
         nf(r.get("roas_day_30")),
     ]
@@ -69,6 +70,7 @@ cr = [
         round(float(r.get("depositors") or 0), 1),
         round(float(r.get("traders") or 0), 1),
         nf(r.get("roas_day_1")),
+        nf(r.get("roas_day_3")),
         nf(r.get("roas_day_7")),
         nf(r.get("roas_day_30")),
     ]
@@ -82,7 +84,7 @@ print(f"Latest date: {max(r[0] for r in ar)}")
 
 # ── Build compact JSON ───────────────────────────────────────────────────────
 aj = json.dumps(
-    {"cols": ["day", "spend", "roas_day_1", "roas_day_7", "roas_day_30"], "rows": ar},
+    {"cols": ["day", "spend", "roas_day_1", "roas_day_3", "roas_day_7", "roas_day_30"], "rows": ar},
     separators=(",", ":"),
 )
 cj = json.dumps(
@@ -90,7 +92,7 @@ cj = json.dumps(
         "cols": [
             "day", "campaign", "spend",
             "signups", "depositors", "traders",
-            "roas_day_1", "roas_day_7", "roas_day_30",
+            "roas_day_1", "roas_day_3", "roas_day_7", "roas_day_30",
         ],
         "rows": cr,
     },
@@ -102,7 +104,9 @@ if not HTML.exists():
     raise FileNotFoundError(f"{HTML} not found. Run from the repo folder.")
 
 h = HTML.read_text(encoding="utf-8")
+latest = max(r[0] for r in ar)
 
+h = re.sub(r'// Data last exported:.*', f'// Data last exported: {latest}', h)
 h_new = re.sub(
     r"const EMBEDDED_AGG\s*=\s*\{.*?\};",
     f"const EMBEDDED_AGG  = {aj};",
